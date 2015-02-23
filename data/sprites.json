@@ -1,0 +1,5 @@
+{
+    "bullet": { "tilew": 7, "tileh": 19, "sx": 2, "sy": 2, "w": 7, "h": 19 },
+    "enemy": { "tilew": 27, "tileh": 26, "sx": 11, "sy": 2, "w": 54, "h": 26 },
+    "player": { "tilew": 59, "tileh": 30, "sx": 2, "sy": 30, "w": 118, "h": 30 }
+}

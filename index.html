@@ -1,0 +1,194 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cómo hacer un juego shoot’em up con Quintus</title>
+    <style>
+        /** Un poco de css no hace daño. **/
+        body {
+            padding: 0;
+            margin: 0;
+            background: #fff;
+        }
+        /** Fondo negro para nuestro canvas. **/
+        canvas {
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Cargando quintus y todos sus módulos por si acaso -->
+    <script src="js/quintus.js"></script>
+    <script src="js/quintus_2d.js"></script>
+    <script src="js/quintus_anim.js"></script>
+    <script src="js/quintus_audio.js"></script>
+    <script src="js/quintus_input.js"></script>
+    <script src="js/quintus_scenes.js"></script>
+    <script src="js/quintus_sprites.js"></script>
+    <script src="js/quintus_tmx.js"></script>
+    <script src="js/quintus_touch.js"></script>
+    
+    <!-- Aquí empieza lo bueno -->
+    <script>
+        /** En cuanto cargue la página... **/
+        window.addEventListener("load", function() {
+            /** Creo una nueva instancia de Quintus en modo desarrollo. **/
+            var Q = Quintus({ development: true })
+            /** 
+                Incluyo tres módulos Sprites, Scenes y 2D. Son los únicos que
+                necesitaré por ahora.
+            **/
+            .include("Sprites, Scenes, 2D")
+            /**
+                Doy a mi área de juego un ancho de 320px y
+                un alto de 480px.
+            **/
+            .setup({ width: 320, height: 480 });
+            
+            /**
+                Voy a utilizar el componente 2d sobre los objetos Enemy
+                pero no me interesa utilizar la gravedad normal, quiero poder controlar
+                su movimiento. Para eso, lo que hago es "resetear" la gravedad sobre Y.
+            **/
+            Q.gravityY = 0;
+            
+            /**
+                En vez de hacer uso de las constantes definidas por Quintus en 
+                su módulo de Sprites para gestionar las colisiones, voy a crear
+                mis propias constantes con nombres más descriptivos.
+            **/
+            var SPRITE_PLAYER = 1;
+            var SPRITE_BULLET = 2;
+            var SPRITE_ENEMY  = 3;
+            
+            /**
+                Voy a empezar extendiendo la clase MovingSprite para crear
+                mi clase Player. Esta clase Player será la responsable de manejar
+                el comportamiento y los eventos de la nave jugador.
+            **/
+            Q.MovingSprite.extend("Player", {
+                init: function(p) {
+                    
+                    /** 
+                        Sobreescribo el constructor para poder inicializar
+                        mi objeto Player con las propiedades que necesito.
+                        Por defecto, mi Player deberá:
+                        - utilizar el sprite "player".
+                        - ser del tipo SPRITE_PLAYER.
+                        - colisionar sólo con objetos del tipo SPRITE_ENEMY.
+                    **/
+                    this._super(p, {
+                        sheet: "player",
+                        sprite: "player",
+                        type: SPRITE_PLAYER,
+                        collisionMask: SPRITE_ENEMY
+                    });
+                    
+                }
+            });
+            
+            /**
+                Ahora voy a hacer lo mismo para crear mi clase Enemy. Esta clase
+                será responsable de los enemigos.
+            **/
+            Q.MovingSprite.extend("Enemy", {
+                init: function(p) {
+                    
+                    /**
+                        Sobreescribo el constructor para poder inicializar mi 
+                        objeto Enemy con las propiedades que necesito.
+                        Por defecto, mi Enemy deberá:
+                        - utilizar el sprite "enemy".
+                        - ser del tipo SPRITE_ENEMY.
+                        - colisionar tanto con objetos del tipo SPRITE_BULLET como SPRITE_PLAYER.
+                    **/
+                    this._super(p, {
+                        sheet: "enemy",
+                        sprite: "enemy",
+                        type: SPRITE_ENEMY,
+                        collisionMask: SPRITE_BULLET | SPRITE_PLAYER
+                    });
+                    
+                    /** 
+                        Además añado el componente 2d a este objeto. 
+                        De esta forma, las colisiones de este objeto con los objetos
+                        del colisionMask que he definido funcionarán.
+                        De esta manera, también los enemigos se moverán hacia abajo
+                        al aplicarles un valor positivo en vY.
+                    **/
+                    this.add("2d");
+                }
+            });
+            
+            /**
+                Voy a definir una Scene "level1"
+                que será el primer nivel del juego. En esta escena, añadiré
+                los sprites que necesite.
+            **/
+            Q.scene("level1", function(stage) {
+                /** 
+                    JUGADOR - Inserto un jugador en el stage. 
+                    Su posición será el centro del ancho y un poco 
+                    por encima de la parte de abajo (20px).
+                **/
+                var player = stage.insert(new Q.Player({
+                    x: Q.width/2,
+                    y: Q.height - 20
+                }));
+                
+                /**
+                    ENEMIGOS - Inserto enemigos en el stage.
+                    Para eso, calculo un número aleatorio de enemigos
+                    que aparecerán a distinta altura y fuera de la visión del canvas,
+                    e invisibles al jugador. Esto no es la mejor manera de hacerlo pero
+                    por ahora sirve.
+                    La propiedad vy sirve para definir la velocidad a la que bajará el enemigo
+                    pero sólo referente al eje Y. El enemigo no se moverá sobre el eje X. Por lo
+                    tanto, sólo se moverá hacia abajo y no hacia los lados.
+                **/
+                var num_enemies = Math.floor(Math.random() * 10 + 10);
+                var enemies = new Array(num_enemies);
+                for (var i=0; i <= num_enemies; i++) {
+                    enemies.push(stage.insert(new Q.Enemy({
+                        x: (Math.random() * (Q.width-120)) + 120,
+                        y: -(Math.random() * 50) - (100*i),
+                        vy: Math.random() * 75 + 100
+                    })));
+                }
+            });
+            
+            /**
+                En este método, voy a cargar las imágenes y spritesheets necesarios
+                para mi juego. También cargaré el audio en el futuro en este método.
+                Quintus se encarga de buscar los archivos en sus carpetas correspondientes.
+                - En data, buscará los JSON de los sprites.
+                - En audio, buscará los sonidos.
+                - En images, buscará las imágenes.
+                Eres libre de modificar este comportamiento y definir tus propias rutas para 
+                que Quintus localice tus archivos, debes hacerlo cuando creas la instancia de
+                Quintus:
+                    var Q = Quintus({ 
+                        imagePath: "http://cdn.yourgame.com/assets/",
+                        audioPath: "http://cdn.yourgame.com/assets/",
+                        dataPath: "http://cdn.yourgame.com/assets/" 
+                    });
+            **/
+            Q.load("sprites.png, sprites.json", function() {
+                /**
+                    He proporcionado a Quintus dos archivos: sprites.png y sprites.json.
+                    En sprites.png, están todas las imágenes que necesito para mi juego:
+                    - Una bala.
+                    - Una nave del jugador y una explosión.
+                    - Una nave enemiga y una explosión.
+                    En el sprites.json, he definido las posiciones y tamaños de mis sprites.
+                **/
+                Q.compileSheets("sprites.png", "sprites.json");
+                
+                /** Esta instrucción arranca un Stage con mi Scene "level1". **/
+                Q.stageScene("level1");
+            });
+        });
+    </script>
+</body>
+</html>
