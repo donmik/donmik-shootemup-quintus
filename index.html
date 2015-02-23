@@ -2,15 +2,15 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Cómo hacer un juego shoot’em up con Quintus</title>
+    <title>How to make a shoot'Em up with Quintus</title>
     <style>
-        /** Un poco de css no hace daño. **/
+        /** A bit of css doesn't hurt. **/
         body {
             padding: 0;
             margin: 0;
             background: #fff;
         }
-        /** Fondo negro para nuestro canvas. **/
+        /** Black background for our canvas. **/
         canvas {
             background: #000;
         }
@@ -18,7 +18,7 @@
 </head>
 <body>
 
-    <!-- Cargando quintus y todos sus módulos por si acaso -->
+    <!-- Loading quintus and all its modules -->
     <script src="js/quintus.js"></script>
     <script src="js/quintus_2d.js"></script>
     <script src="js/quintus_anim.js"></script>
@@ -29,54 +29,54 @@
     <script src="js/quintus_tmx.js"></script>
     <script src="js/quintus_touch.js"></script>
     
-    <!-- Aquí empieza lo bueno -->
+    <!-- Here we go -->
     <script>
-        /** En cuanto cargue la página... **/
+        /** As soon as the page is loaded... **/
         window.addEventListener("load", function() {
-            /** Creo una nueva instancia de Quintus en modo desarrollo. **/
+            /** I create a new instance of Quintus with dev mode. **/
             var Q = Quintus({ development: true })
             /** 
-                Incluyo tres módulos Sprites, Scenes y 2D. Son los únicos que
-                necesitaré por ahora.
+                I include three modules Sprites, Scenes and 2D. I only need
+                those for now.
             **/
             .include("Sprites, Scenes, 2D")
             /**
-                Doy a mi área de juego un ancho de 320px y
-                un alto de 480px.
+                My canvas should have a width of 320px and
+                a height of 480px.
             **/
             .setup({ width: 320, height: 480 });
             
             /**
-                Voy a utilizar el componente 2d sobre los objetos Enemy
-                pero no me interesa utilizar la gravedad normal, quiero poder controlar
-                su movimiento. Para eso, lo que hago es "resetear" la gravedad sobre Y.
+                I will use the 2d component with Enemy objects but I'm not
+                interest with normal gravity, I need to control their movement.
+                This is why I'm going to reset gravity on the Y axis.
             **/
             Q.gravityY = 0;
             
             /**
-                En vez de hacer uso de las constantes definidas por Quintus en 
-                su módulo de Sprites para gestionar las colisiones, voy a crear
-                mis propias constantes con nombres más descriptivos.
+                Instead of using the constants defined by Quintus in his Sprites 
+                module to manage collisions , I create my own constants with 
+                more descriptive names.                
             **/
             var SPRITE_PLAYER = 1;
             var SPRITE_BULLET = 2;
             var SPRITE_ENEMY  = 3;
             
             /**
-                Voy a empezar extendiendo la clase MovingSprite para crear
-                mi clase Player. Esta clase Player será la responsable de manejar
-                el comportamiento y los eventos de la nave jugador.
+                I'll start by extending the MovingSprite class to create 
+                my class Player. The Player class is responsible for managing 
+                the behavior and events of the player.
             **/
             Q.MovingSprite.extend("Player", {
                 init: function(p) {
                     
                     /** 
-                        Sobreescribo el constructor para poder inicializar
-                        mi objeto Player con las propiedades que necesito.
-                        Por defecto, mi Player deberá:
-                        - utilizar el sprite "player".
-                        - ser del tipo SPRITE_PLAYER.
-                        - colisionar sólo con objetos del tipo SPRITE_ENEMY.
+                        Overwriting the init method of MovingSprite in my Player
+                        object. I need the following default properties for every
+                        player:
+                        - Use the sprite "player".
+                        - Type must be "SPRITE_PLAYER".
+                        - Must collide with objects with type "SPRITE_ENEMY".
                     **/
                     this._super(p, {
                         sheet: "player",
@@ -89,19 +89,19 @@
             });
             
             /**
-                Ahora voy a hacer lo mismo para crear mi clase Enemy. Esta clase
-                será responsable de los enemigos.
+                Now I do the same to create my class Enemy.
             **/
             Q.MovingSprite.extend("Enemy", {
                 init: function(p) {
                     
                     /**
-                        Sobreescribo el constructor para poder inicializar mi 
-                        objeto Enemy con las propiedades que necesito.
-                        Por defecto, mi Enemy deberá:
-                        - utilizar el sprite "enemy".
-                        - ser del tipo SPRITE_ENEMY.
-                        - colisionar tanto con objetos del tipo SPRITE_BULLET como SPRITE_PLAYER.
+                        Overwriting the init method of MovingSprite in my Enemy
+                        object. I need the following default properties for every
+                        enemy:
+                        - Use the sprite "enemy".
+                        - Type must be "SPRITE_ENEMY".
+                        - Must collide with objects with type "SPRITE_PLAYER" and also
+                          with "SPRITE_BULLET".
                     **/
                     this._super(p, {
                         sheet: "enemy",
@@ -111,26 +111,21 @@
                     });
                     
                     /** 
-                        Además añado el componente 2d a este objeto. 
-                        De esta forma, las colisiones de este objeto con los objetos
-                        del colisionMask que he definido funcionarán.
-                        De esta manera, también los enemigos se moverán hacia abajo
-                        al aplicarles un valor positivo en vY.
+                        I add the 2d component to this object. Thus, the collisions will
+                        work as expected. The enemies should fall when vy is positive.
                     **/
                     this.add("2d");
                 }
             });
             
             /**
-                Voy a definir una Scene "level1"
-                que será el primer nivel del juego. En esta escena, añadiré
-                los sprites que necesite.
+                I will define a Scene "level1" which is the first level. In this scene,
+                I might add all the needed sprites.
             **/
             Q.scene("level1", function(stage) {
                 /** 
-                    JUGADOR - Inserto un jugador en el stage. 
-                    Su posición será el centro del ancho y un poco 
-                    por encima de la parte de abajo (20px).
+                    PLAYER - I insert a player on the stage. Player's position will be
+                    the center of canvas width and slightly above the bottom (20px above).
                 **/
                 var player = stage.insert(new Q.Player({
                     x: Q.width/2,
@@ -138,14 +133,11 @@
                 }));
                 
                 /**
-                    ENEMIGOS - Inserto enemigos en el stage.
-                    Para eso, calculo un número aleatorio de enemigos
-                    que aparecerán a distinta altura y fuera de la visión del canvas,
-                    e invisibles al jugador. Esto no es la mejor manera de hacerlo pero
-                    por ahora sirve.
-                    La propiedad vy sirve para definir la velocidad a la que bajará el enemigo
-                    pero sólo referente al eje Y. El enemigo no se moverá sobre el eje X. Por lo
-                    tanto, sólo se moverá hacia abajo y no hacia los lados.
+                    ENEMIES - I insert enemies on the stage. For that, I calculate a random
+                    number of enemies that will appear at different heights and out of view
+                    of the canvas. This is not the best way to do this but it's ok for now.
+                    vy is the property used to set the speed of enemies. The enemy will only
+                    move downwards on the Y axis.
                 **/
                 var num_enemies = Math.floor(Math.random() * 10 + 10);
                 var enemies = new Array(num_enemies);
@@ -159,15 +151,14 @@
             });
             
             /**
-                En este método, voy a cargar las imágenes y spritesheets necesarios
-                para mi juego. También cargaré el audio en el futuro en este método.
-                Quintus se encarga de buscar los archivos en sus carpetas correspondientes.
-                - En data, buscará los JSON de los sprites.
-                - En audio, buscará los sonidos.
-                - En images, buscará las imágenes.
-                Eres libre de modificar este comportamiento y definir tus propias rutas para 
-                que Quintus localice tus archivos, debes hacerlo cuando creas la instancia de
-                Quintus:
+                In this methos, I need to preload all pictures and spritesheets for my game.
+                I will upload also the audio in next updates. Quintus will search the files
+                automatically in the appropriate folders.
+                - Folder data is for JSON spritesheets.
+                - Folder audio is for... Sounds!
+                - Folder images is for... wait for it... IMAGES! :)
+                You are free to modify this behavior and define your own routes. You need to 
+                define your own paths when instancing Quintus like this:
                     var Q = Quintus({ 
                         imagePath: "http://cdn.yourgame.com/assets/",
                         audioPath: "http://cdn.yourgame.com/assets/",
@@ -176,16 +167,16 @@
             **/
             Q.load("sprites.png, sprites.json", function() {
                 /**
-                    He proporcionado a Quintus dos archivos: sprites.png y sprites.json.
-                    En sprites.png, están todas las imágenes que necesito para mi juego:
-                    - Una bala.
-                    - Una nave del jugador y una explosión.
-                    - Una nave enemiga y una explosión.
-                    En el sprites.json, he definido las posiciones y tamaños de mis sprites.
+                    I've providedd two files: sprites.png and sprites.json. In sprites.png, I
+                    have all my pictures:
+                    - A bullet.
+                    - A player's ship and an explosion (when the player dies).
+                    - An enemy ship and an explosion (when an enemy is destroyed).
+                    Sprites.json have positions and sizes of my pictures defined.
                 **/
                 Q.compileSheets("sprites.png", "sprites.json");
                 
-                /** Esta instrucción arranca un Stage con mi Scene "level1". **/
+                /** Start a Stage with Scene "level1". **/
                 Q.stageScene("level1");
             });
         });
