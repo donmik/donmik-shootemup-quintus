@@ -2,15 +2,13 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>How to make a shoot'Em up with Quintus</title>
+    <title>How to make a shoot'Em up with Quintus - Part 2</title>
     <style>
-        /** A bit of css doesn't hurt. **/
         body {
             padding: 0;
             margin: 0;
             background: #fff;
         }
-        /** Black background for our canvas. **/
         canvas {
             background: #000;
         }
@@ -28,155 +26,185 @@
     <script src="js/quintus_sprites.js"></script>
     <script src="js/quintus_tmx.js"></script>
     <script src="js/quintus_touch.js"></script>
-    
-    <!-- Here we go -->
+
     <script>
-        /** As soon as the page is loaded... **/
         window.addEventListener("load", function() {
-            /** I create a new instance of Quintus with dev mode. **/
             var Q = Quintus({ development: true })
-            /** 
-                I include three modules Sprites, Scenes and 2D. I only need
-                those for now.
-            **/
-            .include("Sprites, Scenes, 2D")
             /**
-                My canvas should have a width of 320px and
-                a height of 480px.
-            **/
-            .setup({ width: 320, height: 480 });
-            
+             * In Part 2, I'm going to need Input module for keyboardControls.
+             */
+            .include("Sprites, Scenes, 2D, Input")
+            .setup({ width: 320, height: 480 })
             /**
-                I will use the 2d component with Enemy objects but I'm not
-                interest with normal gravity, I need to control their movement.
-                This is why I'm going to reset gravity on the Y axis.
-            **/
+             * With this single line, controls are now activated.
+             */
+            .controls();
+
             Q.gravityY = 0;
-            
-            /**
-                Instead of using the constants defined by Quintus in his Sprites 
-                module to manage collisions , I create my own constants with 
-                more descriptive names.                
-            **/
+
             var SPRITE_PLAYER = 1;
             var SPRITE_BULLET = 2;
             var SPRITE_ENEMY  = 3;
-            
-            /**
-                I'll start by extending the MovingSprite class to create 
-                my class Player. The Player class is responsible for managing 
-                the behavior and events of the player.
-            **/
+
             Q.MovingSprite.extend("Player", {
                 init: function(p) {
-                    
-                    /** 
-                        Overwriting the init method of MovingSprite in my Player
-                        object. I need the following default properties for every
-                        player:
-                        - Use the sprite "player".
-                        - Type must be "SPRITE_PLAYER".
-                        - Must collide with objects with type "SPRITE_ENEMY".
-                    **/
                     this._super(p, {
                         sheet: "player",
                         sprite: "player",
                         type: SPRITE_PLAYER,
-                        collisionMask: SPRITE_ENEMY
+                        collisionMask: SPRITE_ENEMY,
+                        /**
+                         * "speed" is the speed of the player when it's moving.
+                         */
+                        speed: 300
                     });
-                    
+
+                    /**
+                     * When the player push "FIRE" button, Quintus fires the "fire" event
+                     * and the method "shoot" is called.
+                     */
+                    Q.input.on("fire", this, "shoot");
+                },
+
+                /**
+                 * Override the "step" method to define what to do when LEFT or RIGHT keys
+                 * are pushed. I increment or decrement the vx with speed and then update x.
+                 */
+                step: function(dt) {
+                    var p = this.p;
+                    /**
+                     * Checking if LEFT key is pushed and if the left wing of player is inside canvas.
+                     */
+                    if (Q.inputs['left'] && (p.x - p.w/2) > 0) {
+                        p.vx = -p.speed;
+                    /**
+                     * Checking if RIGHT key is pushed and if the right wing of player is inside canvas.
+                     */
+                    } else if (Q.inputs['right'] && (p.x + p.w/2) < Q.width) {
+                        p.vx = p.speed;
+                    } else {
+                        p.vx = 0;
+                    }
+
+                    p.x  += p.vx * dt;
+                },
+
+                /**
+                 * This method will create a new object Bullet.
+                 * The position of new Bullet has to be the same x as the player and
+                 * a little above from the player object.
+                 * vy is the speed of Bullet on y edge.
+                 */
+                shoot: function() {
+                    var p = this.p;
+                    this.stage.insert(new Q.Bullet({
+                        x: p.x,
+                        y: p.y - p.w/2,
+                        vy: -200
+                    }))
                 }
             });
-            
-            /**
-                Now I do the same to create my class Enemy.
-            **/
+
             Q.MovingSprite.extend("Enemy", {
                 init: function(p) {
-                    
-                    /**
-                        Overwriting the init method of MovingSprite in my Enemy
-                        object. I need the following default properties for every
-                        enemy:
-                        - Use the sprite "enemy".
-                        - Type must be "SPRITE_ENEMY".
-                        - Must collide with objects with type "SPRITE_PLAYER" and also
-                          with "SPRITE_BULLET".
-                    **/
                     this._super(p, {
                         sheet: "enemy",
                         sprite: "enemy",
                         type: SPRITE_ENEMY,
-                        collisionMask: SPRITE_BULLET | SPRITE_PLAYER
+                        collisionMask: SPRITE_BULLET | SPRITE_PLAYER,
+                        /**
+                         * This flag disable the impact implemented by Quintus.
+                         * My Enemy objects are not stopping now when they collide itself.
+                         */
+                        skipCollide: true
                     });
-                    
-                    /** 
-                        I add the 2d component to this object. Thus, the collisions will
-                        work as expected. The enemies should fall when vy is positive.
-                    **/
                     this.add("2d");
+
+                    /**
+                     * I add a listener so I can manage collisions.
+                     */
+                    this.on("hit");
+                },
+
+                hit: function(col) {
+                    /**
+                     * If "Enemy" collides with the "Player", "Enemy" dies.
+                     */
+                    if (col.obj.isA("Player")) {
+                        this.destroy();
+                    }
+                    /**
+                     * If "Enemy" collides with a "Bullet", they die.
+                     */
+                    else if (col.obj.isA("Bullet")) {
+                        this.destroy();
+                        col.obj.destroy();
+                    }
                 }
             });
-            
+
             /**
-                I will define a Scene "level1" which is the first level. In this scene,
-                I might add all the needed sprites.
-            **/
+             * I'm going to create a new object "Bullet" extending "MovingSprite".
+             * The default properties are:
+             * - Use the sprite "bullet".
+             * - The type is SPRITE_BULLET.
+             * - Collides with SPRITE_ENEMY.
+             * - sensor is true because I want to define my own behavior when it collides.
+             */
+            Q.MovingSprite.extend("Bullet", {
+                init: function(p) {
+                    this._super(p, {
+                        sheet: "bullet",
+                        sprite: "bullet",
+                        type: SPRITE_BULLET,
+                        collisionMask: SPRITE_ENEMY,
+                        sensor: true
+                    });
+
+                    /**
+                     * Adding 2d component to activate collisions detection and movement.
+                     */
+                    this.add("2d");
+                },
+
+                /**
+                 * I'm overriding step method to destroy bullets.
+                 * Every bullet outside the canvas should be destroyed. If I don't destroy
+                 * them, the bullet is still alive and can kill enemies outside canvas where
+                 * the player cannot see anything.
+                 */
+                step: function(dt) {
+                    if (this.p.y < 0) {
+                        this.destroy();
+                    }
+                }
+            })
+
             Q.scene("level1", function(stage) {
-                /** 
-                    PLAYER - I insert a player on the stage. Player's position will be
-                    the center of canvas width and slightly above the bottom (20px above).
-                **/
                 var player = stage.insert(new Q.Player({
                     x: Q.width/2,
                     y: Q.height - 20
                 }));
-                
-                /**
-                    ENEMIES - I insert enemies on the stage. For that, I calculate a random
-                    number of enemies that will appear at different heights and out of view
-                    of the canvas. This is not the best way to do this but it's ok for now.
-                    vy is the property used to set the speed of enemies. The enemy will only
-                    move downwards on the Y axis.
-                **/
-                var num_enemies = Math.floor(Math.random() * 10 + 10);
+
+                var num_enemies = Math.floor(Math.random() * 10 + 30);
                 var enemies = new Array(num_enemies);
+                /**
+                 * Some enemies were displayed outside the canvas. So I change
+                 * this code to display enemies on edge X betwen 30px and 290px (Q.width-30).
+                 */
+                var minX = 30;
+                var maxX = Q.width - 30;
                 for (var i=0; i <= num_enemies; i++) {
                     enemies.push(stage.insert(new Q.Enemy({
-                        x: (Math.random() * (Q.width-120)) + 120,
+                        x: Math.floor(Math.random() * (maxX - minX + 1)) + minX,
                         y: -(Math.random() * 50) - (100*i),
                         vy: Math.random() * 75 + 100
                     })));
                 }
             });
-            
-            /**
-                In this method, I need to preload all pictures and spritesheets for my game.
-                I will upload also the audio in next updates. Quintus will search the files
-                automatically in the appropriate folders.
-                - Folder data is for JSON spritesheets.
-                - Folder audio is for... Sounds!
-                - Folder images is for... wait for it... IMAGES! :)
-                You are free to modify this behavior and define your own routes. You need to 
-                define your own paths when instancing Quintus like this:
-                    var Q = Quintus({ 
-                        imagePath: "http://cdn.yourgame.com/assets/",
-                        audioPath: "http://cdn.yourgame.com/assets/",
-                        dataPath: "http://cdn.yourgame.com/assets/" 
-                    });
-            **/
+
             Q.load("sprites.png, sprites.json", function() {
-                /**
-                    I've providedd two files: sprites.png and sprites.json. In sprites.png, I
-                    have all my pictures:
-                    - A bullet.
-                    - A player's ship and an explosion (when the player dies).
-                    - An enemy ship and an explosion (when an enemy is destroyed).
-                    Sprites.json have positions and sizes of my pictures defined.
-                **/
                 Q.compileSheets("sprites.png", "sprites.json");
-                
-                /** Start a Stage with Scene "level1". **/
                 Q.stageScene("level1");
             });
         });
