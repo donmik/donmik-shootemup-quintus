@@ -26,19 +26,24 @@
     <script src="js/quintus_sprites.js"></script>
     <script src="js/quintus_tmx.js"></script>
     <script src="js/quintus_touch.js"></script>
+    <!-- I missed this file in previous versions. -->
+    <script src="js/quintus_ui.js"></script>
 
     <script>
         window.addEventListener("load", function() {
             var Q = Quintus({ development: true })
             /**
-             * In Part 2, I'm going to need Input module for keyboardControls.
+             *  In part 3, I need Audio, Anim and UI modules.
+             *  UI module requires Touch module to be loaded too.
              */
-            .include("Sprites, Scenes, 2D, Input")
+            .include("Sprites, Scenes, 2D, Input, Audio, Anim, UI, Touch")
             .setup({ width: 320, height: 480 })
+            .controls()
             /**
-             * With this single line, controls are now activated.
+             * This will turn on Web Audio or HTML5 Audio Support.
+             * Sound is enabled now!
              */
-            .controls();
+            .enableSound();
 
             Q.gravityY = 0;
 
@@ -53,33 +58,21 @@
                         sprite: "player",
                         type: SPRITE_PLAYER,
                         collisionMask: SPRITE_ENEMY,
-                        /**
-                         * "speed" is the speed of the player when it's moving.
-                         */
                         speed: 300
                     });
-
-                    /**
-                     * When the player push "FIRE" button, Quintus fires the "fire" event
-                     * and the method "shoot" is called.
-                     */
+                    /** I'm adding animation component to player. */
+                    this.add("animation");
+                    /** When the player is created, the initial animation is alive. */
+                    this.play("alive");
                     Q.input.on("fire", this, "shoot");
+                    /** I listen to destroy event so I can play the explosion sound with destroyed callback. */
+                    this.on("destroy");
                 },
 
-                /**
-                 * Override the "step" method to define what to do when LEFT or RIGHT keys
-                 * are pushed. I increment or decrement the vx with speed and then update x.
-                 */
                 step: function(dt) {
                     var p = this.p;
-                    /**
-                     * Checking if LEFT key is pushed and if the left wing of player is inside canvas.
-                     */
                     if (Q.inputs['left'] && (p.x - p.w/2) > 0) {
                         p.vx = -p.speed;
-                    /**
-                     * Checking if RIGHT key is pushed and if the right wing of player is inside canvas.
-                     */
                     } else if (Q.inputs['right'] && (p.x + p.w/2) < Q.width) {
                         p.vx = p.speed;
                     } else {
@@ -89,12 +82,6 @@
                     p.x  += p.vx * dt;
                 },
 
-                /**
-                 * This method will create a new object Bullet.
-                 * The position of new Bullet has to be the same x as the player and
-                 * a little above from the player object.
-                 * vy is the speed of Bullet on y edge.
-                 */
                 shoot: function() {
                     var p = this.p;
                     this.stage.insert(new Q.Bullet({
@@ -102,6 +89,11 @@
                         y: p.y - p.w/2,
                         vy: -200
                     }))
+                },
+
+                destroyed: function() {
+                    // Play the explosion sound.
+                    Q.audio.play("explosion.wav");
                 }
             });
 
@@ -113,44 +105,79 @@
                         type: SPRITE_ENEMY,
                         collisionMask: SPRITE_BULLET | SPRITE_PLAYER,
                         /**
-                         * This flag disable the impact implemented by Quintus.
-                         * My Enemy objects are not stopping now when they collide itself.
+                         * Here I made a mistake skipCollide keep Enemy objects
+                         * colliding between themselves, I need to use sensor, so
+                         * Enemy are ignoring themselves.
                          */
-                        skipCollide: true
+                        sensor: true
                     });
-                    this.add("2d");
-
-                    /**
-                     * I add a listener so I can manage collisions.
-                     */
+                    /** I'm adding animation component to Enemy object. */
+                    this.add("2d, animation");
+                    /** First animation is alive. */
+                    this.play("alive");
                     this.on("hit");
+                    /** I listen to destroy event too. */
+                    this.on("destroy");
+                    /** I listen to event fired by animation dead. */
+                    this.on("updatedestroyed");
+                },
+
+                /**
+                 * When the enemies are out of canvas, at the bottom, I want them to die.
+                 */
+                step: function(dt) {
+                    if (this.p.y > Q.height) {
+                        this.updatemissed();
+                    }
                 },
 
                 hit: function(col) {
-                    /**
-                     * If "Enemy" collides with the "Player", "Enemy" dies.
-                     */
                     if (col.obj.isA("Player")) {
-                        this.destroy();
+                        // This time, the player will be destroyed too.
+                        col.obj.play("dead");
+                        // Instead of calling destroy method, I call the play animation dead.
+                        // The destroy method will be called after the animation.
+                        this.play("dead");
                     }
-                    /**
-                     * If "Enemy" collides with a "Bullet", they die.
-                     */
                     else if (col.obj.isA("Bullet")) {
-                        this.destroy();
+                        // Again I play the animation instead of destroying the enemy.
+                        this.play("dead");
                         col.obj.destroy();
                     }
+                },
+
+                /**
+                 * This function updates the property enemies_destroyed and then calls to destroy.
+                 */
+                updatedestroyed: function() {
+                    // Update the property enemies_destroyed incrementing by 1.
+                    Q.state.inc('enemies_destroyed', 1);
+                    // Then die!
+                    this.destroy();
+                },
+
+                /**
+                 * This function updates the property enemies_missed and then calls to destroy.
+                 */
+                updatemissed: function() {
+                    // Update the property enemies_destroyed incrementing by 1.
+                    Q.state.inc('enemies_missed', 1);
+                    // Then die!
+                    this.destroy();
+                },
+
+                /**
+                 * This method will be called every time an object Enemy is destroyed.
+                 */
+                destroyed: function() {
+                    // Play the explosion sound.
+                    Q.audio.play("explosion.wav");
+
+                    // Update the property enemies_alive decrementing by 1.
+                    Q.state.dec("enemies_alive", 1);
                 }
             });
 
-            /**
-             * I'm going to create a new object "Bullet" extending "MovingSprite".
-             * The default properties are:
-             * - Use the sprite "bullet".
-             * - The type is SPRITE_BULLET.
-             * - Collides with SPRITE_ENEMY.
-             * - sensor is true because I want to define my own behavior when it collides.
-             */
             Q.MovingSprite.extend("Bullet", {
                 init: function(p) {
                     this._super(p, {
@@ -160,19 +187,12 @@
                         collisionMask: SPRITE_ENEMY,
                         sensor: true
                     });
-
-                    /**
-                     * Adding 2d component to activate collisions detection and movement.
-                     */
                     this.add("2d");
+
+                    // Play the shoot sound every time a new Bullet is created.
+                    Q.audio.play("shoot.wav");
                 },
 
-                /**
-                 * I'm overriding step method to destroy bullets.
-                 * Every bullet outside the canvas should be destroyed. If I don't destroy
-                 * them, the bullet is still alive and can kill enemies outside canvas where
-                 * the player cannot see anything.
-                 */
                 step: function(dt) {
                     if (this.p.y < 0) {
                         this.destroy();
@@ -181,31 +201,177 @@
             })
 
             Q.scene("level1", function(stage) {
+                /**
+                 * I will need to change the position of the player because of
+                 * the new HUD I have created.
+                 */
                 var player = stage.insert(new Q.Player({
                     x: Q.width/2,
-                    y: Q.height - 20
+                    y: Q.height - 70
                 }));
 
                 var num_enemies = Math.floor(Math.random() * 10 + 30);
                 var enemies = new Array(num_enemies);
-                /**
-                 * Some enemies were displayed outside the canvas. So I change
-                 * this code to display enemies on edge X betwen 30px and 290px (Q.width-30).
-                 */
                 var minX = 30;
                 var maxX = Q.width - 30;
-                for (var i=0; i <= num_enemies; i++) {
+                for (var i=0; i < num_enemies; i++) {
                     enemies.push(stage.insert(new Q.Enemy({
                         x: Math.floor(Math.random() * (maxX - minX + 1)) + minX,
                         y: -(Math.random() * 50) - (100*i),
                         vy: Math.random() * 75 + 100
                     })));
                 }
+
+                /**
+                 * Start the music loop.
+                 */
+                Q.audio.play("music.wav", { loop: true });
+
+                /**
+                 * In Q.state I will save the global properties of my game like:
+                 * - total_enemies: Total number of enemies.
+                 * - enemies_destroyed: Number of enemies destroyed by the player.
+                 * - enemies_alive: Number of enemies still alive.
+                 */
+                Q.state.reset({
+                    total_enemies: num_enemies,
+                    enemies_destroyed: 0,
+                    enemies_missed: 0,
+                    enemies_alive: num_enemies
+                });
             });
 
-            Q.load("sprites.png, sprites.json", function() {
+            /**
+             * I will extend now UI Text to create a label EnemiesDestroyed.
+             * The default properties should be the inital label, the color and size.
+             */
+            Q.UI.Text.extend("EnemiesDestroyed", {
+                init: function(p) {
+                    this._super(p, {
+                        label: "Destroyed: " + Q.state.get("enemies_destroyed"),
+                        color: "white",
+                        size: "14"
+                    });
+                    /** I need to extend because I want to listen on the changes of this variable of the game state. */
+                    Q.state.on("change.enemies_destroyed", this, "update_label");
+                },
+
+                /**
+                 * With this function I will update the label.
+                 */
+                update_label: function(enemies_destroyed) {
+                    this.p.label = "Destroyed: " + enemies_destroyed;
+                }
+            });
+
+            /**
+             * Same as before but with the label EnemiesMissed.
+             */
+            Q.UI.Text.extend("EnemiesMissed", {
+                init: function(p) {
+                    this._super(p, {
+                        label: "Missed: " + Q.state.get("enemies_missed"),
+                        color: "white",
+                        size: "14"
+                    });
+                    /** I need to extend because I want to listen on the changes of this variable of the game state. */
+                    Q.state.on("change.enemies_missed", this, "update_label");
+                },
+
+                /**
+                 * With this function I will update the label.
+                 */
+                update_label: function(enemies_missed) {
+                    this.p.label = "Missed: " + enemies_missed;
+                }
+            });
+
+            /**
+             * Same as before but with the label EnemiesAlive.
+             */
+            Q.UI.Text.extend("EnemiesAlive", {
+                init: function(p) {
+                    this._super(p, {
+                        label: "Still alive: " + Q.state.get("enemies_alive") + " / " + Q.state.get("total_enemies"),
+                        color: "white",
+                        size: "14"
+                    });
+
+                    /** Here I listen to the changes of enemies_alive. */
+                    Q.state.on("change.enemies_alive", this, "update_label");
+                },
+
+                /** Updating the label. */
+                update_label: function(enemies_alive) {
+                    this.p.label = "Still alive: " + enemies_alive + " / " + Q.state.get("total_enemies");
+                }
+            });
+
+            /**
+             * This scene is for HUD only.
+             */
+            Q.scene("hud", function(stage) {
+                /** First, I will create a container to contain the labels. */
+                var container = stage.insert(new Q.UI.Container({
+                    x: Q.width/2,
+                    y: Q.height - 25,
+                    w: Q.width,
+                    h: 50,
+                    fill: "red",
+                    radius: 0
+                }));
+
+                /** Now I will insert the two labels one above the other. */
+                container.insert(new Q.EnemiesDestroyed({
+                    x: -container.p.x/2,
+                    y: -20,
+                }));
+                container.insert(new Q.EnemiesMissed({
+                    x: 75,
+                    y: -20
+                }));
+                container.insert(new Q.EnemiesAlive({
+                    x: 0,
+                    y: 0,
+                }));
+            });
+
+            /**
+             * Instead of using a string, I'm using now an array of strings. The
+             * two ways are valid.
+             */
+            Q.load([ "sprites.png", "sprites.json",
+                /** Loading the sound when you shoot a bullet. */
+                "shoot.wav", "shoot.ogg", "shoot.mp3",
+                /** Loading the sound when an enemy or the player dies. */
+                "explosion.wav", "explosion.ogg", "explosion.mp3",
+                /** Loading the music played on background. */
+                "music.wav", "music.ogg", "music.mp3" ], function() {
                 Q.compileSheets("sprites.png", "sprites.json");
+
+                /**
+                 * I'm going to define the animation of an enemy. I will define
+                 * two animations alive and dead.
+                 * alive is the frame at position 0, rate 1/3 and I don't want it to loop. There is
+                 * only one frame it will be non sense.
+                 * dead is the frame at position 1, rate 1/4 and I don't want it to loop neither.
+                 * Also I want the method destroy be called when the animation is played, so
+                 * the enemy will be destroyed after the animation.
+                 */
+                Q.animations("enemy", {
+                    alive: { frames: [0], rate: 1/3, loop: false },
+                    dead: { frames: [1], rate: 1/4, loop: false, trigger: "updatedestroyed" }
+                });
+                /**
+                 * Now the animation of the player. It's the same thing.
+                 */
+                Q.animations("player", {
+                    alive: { frames: [0], rate: 1/3, loop: false },
+                    dead: { frames: [1], rate: 1/4, loop: false, trigger: "destroy" }
+                });
+
                 Q.stageScene("level1");
+                Q.stageScene("hud", 3, Q('Player').first().p);
             });
         });
     </script>
