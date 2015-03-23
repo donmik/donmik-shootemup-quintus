@@ -116,9 +116,9 @@
                     /** First animation is alive. */
                     this.play("alive");
                     this.on("hit");
-                    /** I listen to destroy event too. */
+                    /** I listen to destroy event here too. */
                     this.on("destroy");
-                    /** I listen to event fired by animation dead. */
+                    /** I listen to event fired by animation dead when it's finished. */
                     this.on("updatedestroyed");
                 },
 
@@ -133,10 +133,10 @@
 
                 hit: function(col) {
                     if (col.obj.isA("Player")) {
-                        // This time, the player will be destroyed too.
+                        // This time, the player will be destroyed too when it collides with an Enemy object.
                         col.obj.play("dead");
                         // Instead of calling destroy method, I call the play animation dead.
-                        // The destroy method will be called after the animation.
+                        // The destroy method will be called from the callback.
                         this.play("dead");
                     }
                     else if (col.obj.isA("Bullet")) {
@@ -160,7 +160,7 @@
                  * This function updates the property enemies_missed and then calls to destroy.
                  */
                 updatemissed: function() {
-                    // Update the property enemies_destroyed incrementing by 1.
+                    // Update the property enemies_missed incrementing by 1.
                     Q.state.inc('enemies_missed', 1);
                     // Then die!
                     this.destroy();
@@ -231,6 +231,7 @@
                  * In Q.state I will save the global properties of my game like:
                  * - total_enemies: Total number of enemies.
                  * - enemies_destroyed: Number of enemies destroyed by the player.
+                 * - enemies_missed: Number of enemies missed by the player but dead.
                  * - enemies_alive: Number of enemies still alive.
                  */
                 Q.state.reset({
@@ -243,7 +244,7 @@
 
             /**
              * I will extend now UI Text to create a label EnemiesDestroyed.
-             * The default properties should be the inital label, the color and size.
+             * The default properties should be the initial label, the color and size.
              */
             Q.UI.Text.extend("EnemiesDestroyed", {
                 init: function(p) {
@@ -321,7 +322,7 @@
                     radius: 0
                 }));
 
-                /** Now I will insert the two labels one above the other. */
+                /** Now I will insert the three labels one above the other. */
                 container.insert(new Q.EnemiesDestroyed({
                     x: -container.p.x/2,
                     y: -20,
@@ -337,8 +338,8 @@
             });
 
             /**
-             * Instead of using a string, I'm using now an array of strings. The
-             * two ways are valid.
+             * Instead of using a string, I'm using now an array of strings.
+             * The two ways are valid.
              */
             Q.load([ "sprites.png", "sprites.json",
                 /** Loading the sound when you shoot a bullet. */
@@ -355,7 +356,7 @@
                  * alive is the frame at position 0, rate 1/3 and I don't want it to loop. There is
                  * only one frame it will be non sense.
                  * dead is the frame at position 1, rate 1/4 and I don't want it to loop neither.
-                 * Also I want the method destroy be called when the animation is played, so
+                 * Also I want the event "updatedestroyed" be triggered when the animation is finished, so
                  * the enemy will be destroyed after the animation.
                  */
                 Q.animations("enemy", {
@@ -363,7 +364,7 @@
                     dead: { frames: [1], rate: 1/4, loop: false, trigger: "updatedestroyed" }
                 });
                 /**
-                 * Now the animation of the player. It's the same thing.
+                 * Now the animation of the player. It's the same thing but "destroy" is triggered.
                  */
                 Q.animations("player", {
                     alive: { frames: [0], rate: 1/3, loop: false },
